@@ -2,20 +2,23 @@
 
 <p align="center"><img src="outputs/figures/explainer.svg" alt="Animated explainer. Resume a session after a 10-minute break and the same small fix uses about 10x a fresh session (measured on a 97k-token session), because the cache expired (5 minutes on an API key, 1 hour on a subscription) and the whole history is sent again. Avoid: resuming after a break, /compact after a break, turning off a tool mid-task (22x a normal turn). Do: /compact before a break (2.5x), /clear plus a 3-line note after one (a fresh start), stay in the session for quick fixes in a row (28% less than /clear between fixes). Star this repo if you found it useful." width="100%"></p>
 
+As engineers and builders we are using LLMs for almost all of our work, and the more we use them the more important it becomes to understand how to optimize the performance, reliability and cost of AI tools. I started this research to better understand and improve my own setup and greatly reduce my token usage and costs.
+
 Claude Code usage is driven by cache misses, not by how much you type. The expensive habits are ways of throwing that cache away.
+
+**How long is your cache?** 5 minutes on an API key (also Bedrock, Vertex and Foundry). 1 hour on a Pro, Max or Ultra subscription within its usage limits. The Claude CLI and the app behave the same. `/usage` shows it on its `Prompt cache (main)` line. [(does this apply to you?)](#does-this-apply-to-you)
 
 ## Best practices
 
 | ✅ Do | ❌ Don't | Usage and evidence |
 | --- | --- | --- |
-| Run [`/compact`](https://code.claude.com/docs/en/commands) before a break | Leave and resume later | **2.5x vs about 10x**<br>3 runs [(details)](#compact-before-or-after-the-break) |
+| Run [`/compact`](https://code.claude.com/docs/en/commands) before a break longer than your cache | Leave and resume later | **2.5x vs about 10x**<br>3 runs [(details)](#compact-before-or-after-the-break) |
 | After a break, [`/clear`](https://code.claude.com/docs/en/commands) and write 3 lines: goal, done, next | Run `/compact` after the break | **about 1x vs about 10x**<br>3 runs, 2 for `/compact` [(details)](#cache-expiry-after-a-break) |
+| On a subscription, lower the idle-compact minimum to 100k and keep the window open on breaks | Let the laptop sleep mid-session | **+76% over a workday when idle compact did not run**<br>(estimate) modeled, not tested live [(details)](#where-compaction-actually-fires) |
 | Keep one session for small related fixes in a row | `/clear` between them | **28% less**<br>1 run, small history, preliminary [(details)](#clear-vs-a-warm-session) |
-| Start scheduled `claude -p` jobs fresh, notes in a file | Continue the last run with `--resume` | **about 3x**<br>(estimate) not tested live [(details)](#cache-expiry-after-a-break) |
-| Keep tool output short (a 1-line summary) | Leave long logs in the chat | **+15% (750-token log) to +64% (5,000) over the next 6 turns**<br>2 runs each, preliminary [(details)](#long-tool-output) |
+| Keep tool output short: a 1-line summary, or pipe logs through `tail -50` | Leave long logs in the chat, or let Claude reread the whole repo each turn | **+15% (750-token log) to +64% (5,000) over the next 6 turns**<br>2 runs each, preliminary [(details)](#long-tool-output) |
 | Pick tools and model at the start | Turn off a tool or switch models mid-task | **22x a normal turn**<br>2 runs, preliminary; model switch from docs, not tested [(details)](#switching-models-effort-or-tools) |
-| Use the Claude Code CLI | Use the Desktop Code tab | **Desktop at least 1.80x, T3 Code 1.19x the CLI**<br>1 run, preliminary. We did not test the Claude chat app. [(details)](#three-clients-one-bugfix) |
-| Compare usage | Compare raw token counts | **same raw tokens, 6.5x apart in usage**<br>cached tokens cost far less [(details)](#the-evidence) |
+| Use the Claude Code CLI | Use the Desktop Code tab | **Desktop at least 1.80x, T3 Code 1.19x the CLI**<br>1 run, preliminary. Slash commands work in the Desktop app too. We did not test the Claude chat app. [(details)](#three-clients-one-bugfix) |
 
 ## Check your own habits: paste this into Claude Code
 
@@ -59,8 +62,9 @@ To run only the analyzer yourself: `python3 -m cc_usage_study.analyze ~/.claude/
 
 - Our calculation says `--autocompact 180000` uses about 43% less. In a live test on a 270,000-token session, it only tied the default. We ran that test once, with no long pauses. [(details)](#compaction-settings-and-sweet-spots)
 - We do not yet know the best compact settings for very long sessions. Our calculation failed when we checked it against the live tests. [(details)](#does-the-model-hold-up)
-- Editing `CLAUDE.md`, adding an MCP server, or changing effort between turns did not break the cache. The next turn used about the same as a normal turn (0.95x to 1.08x on average). (3 runs each, Claude Code 2.1.325) [(details)](#switching-models-effort-or-tools)
-- Fewer raw tokens is not the same as less usage. One setting sent 63% fewer raw tokens than the default, and used 25.2% more. [(details)](#compaction-measured-live)
+- Editing `CLAUDE.md`, adding an MCP server, or changing effort between turns did not break the cache. The next turn used about the same as a normal turn (0.95x to 1.08x on average). (3 runs each, Claude Code 2.1.325; older versions may behave differently) [(details)](#switching-models-effort-or-tools)
+- Fewer raw tokens is not the same as less usage. One setting sent 63% fewer raw tokens than the default, and used 25.2% more. Two runs with the same raw tokens (about 294,000) differed 6.5x in usage, because cached tokens cost far less. [(details)](#compaction-measured-live)
+- Resuming a scheduled `claude -p` run (the Claude CLI's scripted mode) instead of starting fresh is estimated at about 3x. Not tested live. [(details)](#cache-expiry-after-a-break)
 
 A "break" means you were away longer than the [prompt cache](https://code.claude.com/docs/en/prompt-caching). That cache lasts **5 minutes** if you use an API key or usage credits, and **1 hour** if you use a subscription within its [usage limits](https://support.claude.com/en/articles/11145838-use-claude-code-with-your-pro-max-or-ultra-plan). We measured pauses of 2 to 13 minutes on the 5-minute cache. [(does this apply to you?)](#does-this-apply-to-you)
 
@@ -91,6 +95,18 @@ Next: patch money.py, run the suite.
 **Careful with `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE`.** On a 1M-context model, `25` fires at about 245,000 tokens, which is reasonable. On a 200k-context model it fires at 45,000, below what a summary leaves behind, and the session thrashes (+239% in our model). In T3 Code it stacks with "Auto-compact after", so set only one of the two. [(details)](docs/examples.md)
 
 **T3 Code can compact before a break for you.** Its idle-thread setting has three modes: "When you return" (the default, `onReturn`), "Before the cache expires" (beta, `beforeCacheExpires`), and "Never". "When you return" compacts after the cache has already expired, so you pay the rebuild anyway. "Before the cache expires" compacts an idle thread while the cache is still warm, which is the automatic version of `/compact` before a break. Not measured in this study yet.
+
+**See your cache.** `/usage` shows a `Prompt cache (main)` line: warm, with its time limit and the time since your last turn, or cold. You can also show the time since your last turn in your [status line](https://code.claude.com/docs/en/statusline). Community mods that do this exist; we have not tested them.
+
+**On a subscription, let idle compact do the `/compact` for you.** It is on by default and summarizes the session at about 90% of the hour, but only while the window stays open and only above `CLAUDE_CODE_IDLE_COMPACT_MIN_TOKENS` (200,000 by default). Set it to `100000` so ordinary sessions qualify. It never runs on an API key, after `claude -p` ends, or on a sleeping laptop. [(details)](#where-compaction-actually-fires)
+
+**On an API key, you can choose the 1-hour cache.** Set `"promptCacheTtl": "1h"` in your settings, or `CLAUDE_CODE_PROMPT_CACHE_TTL=1h`. Each cache write then costs 2x instead of 1.25x, so it pays off only if you often come back after 5 to 60 minutes. Not measured here.
+
+**Desktop or CLI?** Slash commands such as `/clear` and `/compact` work in both. The Desktop Code tab loads more tools and a longer system prompt, and used at least 1.80x the CLI in our one run. [(details)](#three-clients-one-bugfix)
+
+**Claude.ai in the browser?** Not tested. On Pro and Max it draws on the same usage limits as Claude Code.
+
+**Subagents?** Not tested yet. Each subagent starts with its own context and pays its own cache write, and its cache lasts 5 minutes unless you set `CLAUDE_CODE_SUBAGENT_PROMPT_CACHE_TTL=1h`. Whether delegating a search beats doing it in a large session is on the list.
 
 ---
 
