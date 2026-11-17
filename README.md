@@ -391,7 +391,7 @@ The analyzer copies summary numbers only, never prompt text. Read `preTokens` on
 
 ## Credits
 
-Live experiments ran on Claude Opus 5.5. Writing and analysis were AI-assisted, and then edited.
+Live experiments ran on Claude Opus 5.5. The analysis was driven by Grok Bot 4.7 and Claude Fable 5.2. Writing was AI-assisted, and then edited.
 
 ## License
 

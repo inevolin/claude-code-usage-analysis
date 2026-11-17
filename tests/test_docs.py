@@ -82,7 +82,7 @@ def test_readme_leads_with_practices_and_embeds_the_charts():
     practices = readme.index("## Best practices")
     check = readme.index("## Check your own habits: paste this into Claude Code")
     myths = readme.index("## Myths and unknowns")
-    copy_paste = readme.index("## Copy-paste")
+    copy_paste = readme.index("## What to do about it")
     evidence = readme.index("## The evidence")
     assert hero < practices < check < myths < copy_paste < evidence
     # The dose-response chart belongs in the evidence section, not at the top.
