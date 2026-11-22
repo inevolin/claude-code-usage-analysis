@@ -1,4 +1,4 @@
-# Claude Code usage anti-patterns # Claude Code usage: the 10x cost of a break, and how to avoid it best-practices
+# Claude Code usage anti-patterns & best-practices
 
 <p align="center"><img src="outputs/figures/explainer.svg" alt="Animated explainer in five slides, with a slide timer along the bottom. 1. Claude saves your chat for a short time, so each new message is cheap: 1 hour on a Pro, Max or Ultra plan, 5 minutes on an API key. Every message restarts the timer. 2. Come back after the timer runs out, and your next message costs about 10x: new chat 1x, back before the timer ends 1.5x, back after it ends 9.8x. Claude has to save the whole chat again. Measured 13 times on an API key. 3. Taking a break? Shrink the chat first. Type /compact. About 2.5x instead of 10x. 4. Back from a break? Start a new chat. Keeping going in the old chat costs 9.8x; a new chat with a 3-line note (Goal, Done, Next) costs 1x. Type /clear, then write Goal, Done and Next. 5. Found this useful? Star the repo on GitHub." width="100%"></p>
 
