@@ -10,8 +10,6 @@ In short: Claude rereads your whole chat every time you send a message. To make 
 
 ## Best practices
 
-"x" means times the usage of the same task in a new session.
-
 | ✅ Do | ❌ Don't | Usage and evidence |
 | --- | --- | --- |
 | Run [`/compact`](https://code.claude.com/docs/en/commands) before a break longer than your cache | Leave, then continue later | **2.5x vs about 10x**, 3 runs [(details)](#compact-before-or-after-the-break) |
@@ -21,6 +19,8 @@ In short: Claude rereads your whole chat every time you send a message. To make 
 | Pick tools and model at the start | Turn off a tool or switch models mid-task | **22x a normal turn**, 2 runs; model switch from docs [(details)](#switching-models-effort-or-tools) |
 | On a subscription, lower the idle-compact minimum to 100k and keep the window open | Let the laptop sleep mid-session | **+76% over a workday** (estimate), not tested live [(details)](#where-compaction-actually-fires) |
 | Use the Claude Code CLI | Use the Desktop Code tab | Desktop **at least 1.80x**, T3 Code **1.19x the CLI**, 1 run. We did not test the Claude chat app. [(details)](#three-clients-one-bugfix) |
+
+"x" means times the usage of the same task in a new session.
 
 ## Check your own habits: paste this into Claude Code
 
