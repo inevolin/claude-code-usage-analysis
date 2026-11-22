@@ -77,7 +77,7 @@ def test_no_private_material_in_public_pages():
 
 def test_readme_leads_with_practices_and_embeds_the_charts():
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
-    assert readme.startswith("# Claude Code usage anti-patterns and best-practices")
+    assert readme.startswith("# Claude Code usage: the 10x cost of a break, and how to avoid it")
     hero = readme.index("outputs/figures/explainer.svg")
     practices = readme.index("## Best practices")
     check = readme.index("## Check your own habits: paste this into Claude Code")
