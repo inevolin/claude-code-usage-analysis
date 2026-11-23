@@ -46,7 +46,8 @@ def test_front_pages_drop_the_old_framing():
     for relative in ("README.md", "docs/article-draft.md"):
         text = (ROOT / relative).read_text(encoding="utf-8")
         lowered = text.lower()
-        assert "4x" not in lowered, relative
+        # Ban the old standalone "4x" claim. Measured values such as 1.64x are allowed.
+        assert re.search(r"(?<![\d.])4x", lowered) is None, relative
         assert ("link" + "edin") not in lowered, relative
         assert ("200" + "%") not in lowered, relative
         assert "\u2014" not in text, relative
@@ -78,26 +79,47 @@ def test_no_private_material_in_public_pages():
 def test_readme_leads_with_practices_and_embeds_the_charts():
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     assert readme.startswith("# Claude Code usage anti-patterns & best-practices")
+    assert readme.splitlines()[0] == "# Claude Code usage anti-patterns & best-practices"
     hero = readme.index("outputs/figures/explainer.svg")
+    first_figure = readme.index("outputs/figures/")
+    assert hero == first_figure
     practices = readme.index("## Best practices")
-    check = readme.index("## Check your own habits: paste this into Claude Code")
-    myths = readme.index("## Myths and unknowns")
-    copy_paste = readme.index("## What to do about it")
+    check = readme.index("## Check your own habits")
+    assert "## Check your own habits: paste this into Claude Code" not in readme
+    other = readme.index("## Other findings")
     evidence = readme.index("## The evidence")
-    assert hero < practices < check < myths < copy_paste < evidence
+    share = readme.index("## Share with your team")
+    assert hero < practices < check < other < evidence < share
+    assert "## Myths and unknowns" not in readme
+    assert "## What to do about it" not in readme
+    assert "As engineers and builders" not in readme
+    assert "cache already gone" not in readme
     # The dose-response chart belongs in the evidence section, not at the top.
     assert readme.index("outputs/figures/hero_cache_expiry.png") > evidence
     assert "## Anti-patterns" not in readme
-    # Title, hero, and the paired practices list stay short; the self-check prompt follows.
-    assert readme[:check].count("\n") < 25
-    self_check = readme[check:myths]
+    # The "x" definition sits directly under the table; the copyable templates follow it.
+    x_line = '"x" means times the usage of the same task in a new session.'
+    assert practices < readme.index(x_line) < check
+    assert readme.index(x_line) < readme.index("```text\n# Before a break")
+    # Jump links under the hero.
+    assert 'href="#best-practices"' in readme[:practices]
+    assert 'href="#check-your-own-habits"' in readme[:practices]
+    assert 'href="#the-evidence"' in readme[:practices]
+    assert 'href="#honest-limits"' in readme[:practices]
+    self_check = readme[check:other]
     assert "cc_usage_study.analyze" in self_check
     assert "--summary" in self_check and "--sessions" in self_check
     assert "Everyone uses Claude Code differently" in self_check
     assert "~/.claude/skills" in self_check
     assert "/claude-code-usage-check" in self_check
+    assert "mktemp -d" in self_check
+    assert "The tool never reads or uploads your chat text" in self_check
     assert readme.index("### Cache expiry after a break") > evidence
     assert "### Does the model hold up?" in readme[evidence:]
+    assert "How to read the evidence below:" in readme[evidence:]
+    assert "Live measured" in readme[evidence:]
+    assert "Preliminary live" in readme[evidence:]
+    assert "Calculated estimate" in readme[evidence:]
     # Promote the CLI / T3 Code over Desktop, without inventing a chat-app number.
     top = readme[:evidence]
     assert "Use the Claude Code CLI" in top
@@ -105,6 +127,8 @@ def test_readme_leads_with_practices_and_embeds_the_charts():
     assert "Desktop Code tab" in top
     assert "We did not test the Claude chat app." in top
     assert "1.19x the CLI" in top and "at least 1.80x" in top
+    # The untested workday row left the measured table, but the estimate stays above the evidence.
+    assert "+76%" in top
     for figure in (
         "explainer.svg",
         "hero_cache_expiry.png",
@@ -165,8 +189,8 @@ def test_readme_internal_anchors_resolve():
     assert missing == []
     for required in (
         "best-practices",
-        "check-your-own-habits-paste-this-into-claude-code",
-        "myths-and-unknowns",
+        "check-your-own-habits",
+        "other-findings",
         "the-evidence",
         "cache-expiry-after-a-break",
         "compact-before-or-after-the-break",
@@ -178,6 +202,7 @@ def test_readme_internal_anchors_resolve():
         "compaction-settings-and-sweet-spots",
         "honest-limits",
         "reproduce",
+        "share-with-your-team",
     ):
         assert required in slugs, required
 
@@ -212,3 +237,15 @@ def test_usage_check_skill_has_valid_frontmatter():
     assert "Everyone uses Claude Code differently" in text
     assert "\u2014" not in text
     assert DOLLAR.search(text) is None
+
+
+def test_social_preview_image_is_github_card_size():
+    from PIL import Image
+
+    path = ROOT / "outputs" / "figures" / "social_preview.png"
+    assert path.is_file()
+    with Image.open(path) as image:
+        assert image.size == (1280, 640)
+        assert image.format == "PNG"
+    assert path.stat().st_size < 1_000_000
+
